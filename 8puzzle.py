@@ -6,6 +6,7 @@ inserted = set()
 maxqueue = 0
 depth = 0
 
+
 class slidepuzzle:
 
     def __init__(self, dim, state, depth):
@@ -23,9 +24,6 @@ class slidepuzzle:
         return key
 
 
-
-
-
 def generategoal(dim):
         goal = list()
         num = 1
@@ -40,15 +38,6 @@ def generategoal(dim):
             goal.append(temp)
         return goal
 
-
-def generatefalse(dim):
-    false = list()
-    for i in range(0, dim):
-        temp = list()
-        for j in range(0, dim):
-            temp.append(-1)
-        false.append(temp)
-    return false
 
 def findblank(puzzle):
     for i in range(puzzle.dim):
@@ -84,6 +73,11 @@ def generalsearch(problem, function, operators):
         if nodes.empty():
             return False
         curr = nodes.get()
+        print('Expanding node with g(n) = '  + str(curr.depth) + ' and h(n) = ' + str(curr.heuristic))
+        for i in range(curr.dim):
+            for j in range(curr.dim):
+                print(curr.state[i][j], end = ' ')
+            print()
         visited.add(curr.hashkey())
         if curr.state == goal:
             global depth
@@ -102,9 +96,9 @@ def uniformcost(puzzle, operators):
     for op in operators:
         temp = c.deepcopy(puzzle)
         temp = op(temp)
-        if temp.hashkey not in inserted:
+        if temp.hashkey() not in inserted:
             branches.append(slidepuzzle(temp.dim, temp.state, temp.depth+1))
-            inserted.add(temp.hashkey)
+            inserted.add(c.copy(temp.hashkey()))
     return branches
 
 
@@ -113,10 +107,12 @@ def misplacedtile(puzzle, operators):
     for op in operators:
         temp = c.deepcopy(puzzle)
         temp = op(temp)
-        if temp.hashkey not in inserted:
+        if temp.hashkey() not in inserted:
             branches.append(slidepuzzle(temp.dim, temp.state, temp.depth+1))
-            inserted.add(temp.hashkey)
-    branches = sorted(branches, key = lambda x: (mtheuristic(x)+x.depth))
+            inserted.add(c.copy(temp.hashkey()))
+    for branch in branches:
+        branch.heuristic = mtheuristic(branch)
+    branches = sorted(branches, key = lambda x: (x.heuristic+x.depth))
     return branches
 
 
@@ -125,10 +121,12 @@ def manhattandistance(puzzle, operators):
     for op in operators:
         temp = c.deepcopy(puzzle)
         temp = op(temp)
-        if temp.hashkey not in inserted:
+        if temp.hashkey() not in inserted:
             branches.append(slidepuzzle(temp.dim, temp.state, temp.depth+1))
-            inserted.add(temp.hashkey)
-    branches = sorted(branches, key = lambda x: (mdheuristic(x)+x.depth))
+            inserted.add(c.copy(temp.hashkey()))
+    for branch in branches:
+        branch.heuristic = mdheuristic(branch)
+    branches = sorted(branches, key=lambda x: (x.heuristic + x.depth))
     return branches
 
 
@@ -183,15 +181,18 @@ def right(problem):
 
 def main():
     operators = [up, down, left, right]
-    puzzle = slidepuzzle(3, inputpuzzle(3), 1)
+    queuingfunctions = [uniformcost, misplacedtile, manhattandistance]
+    dim = int(input('Choose the size of your puzzle: '))
+    puzzle = slidepuzzle(dim, inputpuzzle(dim), 0)
     visited.add(puzzle.hashkey())
     inserted.add(puzzle.hashkey())
-    outcome = generalsearch(puzzle, manhattandistance, operators)
-    print(outcome)
+    qf = int(input('Choose your queuing function:\n (0) = Uniform cost\n (1) = Misplaced tile heuristic\n (2) = Manhattan distance heuristic:'))
+    outcome = generalsearch(puzzle, queuingfunctions[qf], operators)
+    print('Is the goal state reachable? ' + str(outcome))
     expanded = len(visited)
-    print(expanded)
-    print(maxqueue)
-    print(depth)
+    print('Number of nodes expanded: ' + str(expanded))
+    print('Maximum nodes in the queue: ' + str(maxqueue))
+    print('Solution depth: ' + str(depth))
 
 
 main()
