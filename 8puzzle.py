@@ -1,5 +1,6 @@
 import queue as q
 import copy as c
+import time as t
 
 visited = set()
 inserted = set()
@@ -187,12 +188,15 @@ def main():
     visited.add(puzzle.hashkey())
     inserted.add(puzzle.hashkey())
     qf = int(input('Choose your queuing function:\n (0) = Uniform cost\n (1) = Misplaced tile heuristic\n (2) = Manhattan distance heuristic:'))
+    timer = t.time()
     outcome = generalsearch(puzzle, queuingfunctions[qf], operators)
+    timer = t.time() - timer
     print('Is the goal state reachable? ' + str(outcome))
     expanded = len(visited)
     print('Number of nodes expanded: ' + str(expanded))
     print('Maximum nodes in the queue: ' + str(maxqueue))
     print('Solution depth: ' + str(depth))
+    print('Time taken: ' + str(timer))
 
 
 main()
