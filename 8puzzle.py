@@ -1,11 +1,18 @@
 import queue as q
 import copy as c
 import time as t
+from dataclasses import dataclass, field
+from typing import Any
 
 visited = set()
 inserted = set()
 maxqueue = 0
 depth = 0
+
+@dataclass(order=True)
+class PrioritizedItem:#Taken from https://docs.python.org/3/library/queue.html
+    priority: int
+    item: Any=field(compare=False)
 
 
 class slidepuzzle:
@@ -67,13 +74,14 @@ def inputpuzzle(dim):
 
 
 def generalsearch(problem, function, operators):
-    nodes = q.Queue()
-    nodes.put(problem)
+    nodes = q.PriorityQueue()
+    start = PrioritizedItem(0, problem)
+    nodes.put(start)
     goal = generategoal(problem.dim)
     while(1):
         if nodes.empty():
             return False
-        curr = nodes.get()
+        curr = nodes.get().item
         print('Expanding node with g(n) = '  + str(curr.depth) + ' and h(n) = ' + str(curr.heuristic))
         for i in range(curr.dim):
             for j in range(curr.dim):
@@ -86,7 +94,8 @@ def generalsearch(problem, function, operators):
             return True
         branches = function(curr, operators)
         for branch in branches:
-            nodes.put(branch)
+            node = PrioritizedItem(branch.heuristic + branch.depth, branch)
+            nodes.put(c.copy(node))
         global maxqueue
         if nodes.qsize() > maxqueue:
             maxqueue = nodes.qsize()
@@ -113,7 +122,6 @@ def misplacedtile(puzzle, operators):
             inserted.add(c.copy(temp.hashkey()))
     for branch in branches:
         branch.heuristic = mtheuristic(branch)
-    branches = sorted(branches, key = lambda x: (x.heuristic+x.depth))
     return branches
 
 
@@ -127,7 +135,6 @@ def manhattandistance(puzzle, operators):
             inserted.add(c.copy(temp.hashkey()))
     for branch in branches:
         branch.heuristic = mdheuristic(branch)
-    branches = sorted(branches, key=lambda x: (x.heuristic + x.depth))
     return branches
 
 
@@ -187,7 +194,7 @@ def main():
     puzzle = slidepuzzle(dim, inputpuzzle(dim), 0)
     visited.add(puzzle.hashkey())
     inserted.add(puzzle.hashkey())
-    qf = int(input('Choose your queuing function:\n (0) = Uniform cost\n (1) = Misplaced tile heuristic\n (2) = Manhattan distance heuristic:'))
+    qf = int(input('Choose your queuing function:\n (1) = Uniform cost\n (2) = Misplaced tile heuristic\n (3) = Manhattan distance heuristic:'))-1
     timer = t.time()
     outcome = generalsearch(puzzle, queuingfunctions[qf], operators)
     timer = t.time() - timer
