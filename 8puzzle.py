@@ -1,29 +1,30 @@
-import queue as q
-import copy as c
-import time as t
-from dataclasses import dataclass, field
-from typing import Any
+import queue as q #For PriorityQueue
+import copy as c #For copying and deep copying lists
+import time as t #For timing
+from dataclasses import dataclass, field #For PrioritizedItem
+from typing import Any #For PrioritizedItem
 
 visited = set()
 inserted = set()
 maxqueue = 0
 depth = 0
+frontier = 0
 
 @dataclass(order=True)
-class PrioritizedItem:#Taken from https://docs.python.org/3/library/queue.html
-    priority: int
+class PrioritizedItem:#Wrapper class to be used with the priority queue, taken from https://docs.python.org/3/library/queue.html
+    priority: (int, int) #Tuple is used to allow tie-breaking in sorting based on depth
     item: Any=field(compare=False)
 
 
-class slidepuzzle:
+class slidepuzzle:#Holds all info for the state of a puzzle
 
     def __init__(self, dim, state, depth):
         self.dim = dim
         self.state = state
-        self.depth = depth
-        self.heuristic = 0
+        self.depth = depth #g(n)
+        self.heuristic = 0 #h(n)
 
-    def hashkey(self):
+    def hashkey(self):#Converts the state into a string, allowing it to be used as a dictionary key
         key = ""
         for i in range(self.dim):
             for j in range(self.dim):
@@ -32,7 +33,7 @@ class slidepuzzle:
         return key
 
 
-def generategoal(dim):
+def generategoal(dim): #Generates a goal state given the dimension of the puzzle
         goal = list()
         num = 1
         for i in range(0, dim):
@@ -47,21 +48,21 @@ def generategoal(dim):
         return goal
 
 
-def findblank(puzzle):
+def findblank(puzzle): #Finds the 0 tile and returns its coordinates
     for i in range(puzzle.dim):
         for j in range(puzzle.dim):
             if puzzle.state[i][j] == 0:
                 return (i, j)
 
 
-def findval(puzzle, val):
+def findval(puzzle, val): #Finds val and returns its coordinates
     for i in range(len(puzzle)):
         for j in range(len(puzzle)):
             if puzzle[i][j] == val:
                 return (i, j)
 
 
-def inputpuzzle(dim):
+def inputpuzzle(dim): #Takes in user input and creates a slide puzzle
     puzzle = list()
     print('Please input a valid ' + str(dim*dim - 1) + '-puzzle')
     for i in range(0, dim):
@@ -73,35 +74,37 @@ def inputpuzzle(dim):
     return puzzle
 
 
-def generalsearch(problem, function, operators):
+def generalsearch(problem, function, operators): #General search algorithm template, adapted from the slides
     nodes = q.PriorityQueue()
-    start = PrioritizedItem(0, problem)
+    start = PrioritizedItem(0, problem) #Inserting initial state into queue
     nodes.put(start)
-    goal = generategoal(problem.dim)
+    goal = generategoal(problem.dim) #Generating goal state for comparisons
     while(1):
         if nodes.empty():
-            return False
+            return False #Queue can only be empty if we have checked all nodes
         curr = nodes.get().item
         print('Expanding node with g(n) = '  + str(curr.depth) + ' and h(n) = ' + str(curr.heuristic))
         for i in range(curr.dim):
             for j in range(curr.dim):
                 print(curr.state[i][j], end = ' ')
             print()
-        visited.add(curr.hashkey())
+        visited.add(curr.hashkey()) #Adding state to list of expanded nodes
         if curr.state == goal:
             global depth
             depth = curr.depth
+            global frontier
+            frontier = nodes.qsize()
             return True
-        branches = function(curr, operators)
+        branches = function(curr, operators) #Uses whatever function we passed to find h(n) for all children nodes
         for branch in branches:
-            node = PrioritizedItem(branch.heuristic + branch.depth, branch)
+            node = PrioritizedItem((branch.heuristic + branch.depth, branch.depth), branch) #Inserting into queue based on h(n) + g(n), then just g(n) in event of a tie
             nodes.put(c.copy(node))
         global maxqueue
         if nodes.qsize() > maxqueue:
-            maxqueue = nodes.qsize()
+            maxqueue = nodes.qsize() #Updating maximum queue size
 
 
-def uniformcost(puzzle, operators):
+def uniformcost(puzzle, operators): #Uniform Cost Search queuing function
     branches = list()
     for op in operators:
         temp = c.deepcopy(puzzle)
@@ -112,7 +115,7 @@ def uniformcost(puzzle, operators):
     return branches
 
 
-def misplacedtile(puzzle, operators):
+def misplacedtile(puzzle, operators): #Misplaced Tile Heuristic queuing function
     branches = list()
     for op in operators:
         temp = c.deepcopy(puzzle)
@@ -125,7 +128,7 @@ def misplacedtile(puzzle, operators):
     return branches
 
 
-def manhattandistance(puzzle, operators):
+def manhattandistance(puzzle, operators):#Manhattan Distance Heuristic queuing function
     branches = list()
     for op in operators:
         temp = c.deepcopy(puzzle)
@@ -137,50 +140,53 @@ def manhattandistance(puzzle, operators):
         branch.heuristic = mdheuristic(branch)
     return branches
 
+def ucheuristsic(puzzle): #Returns h(n) for Uniform Cost, only used in main
+    return 0
 
-def mtheuristic(puzzle):
+
+def mtheuristic(puzzle):#Returns h(n) for Missing Tile
     distance = 0
     goal = generategoal(puzzle.dim)
     for i in range(0, puzzle.dim):
         for j in range(0, puzzle.dim):
-            if goal[i][j] != puzzle.state[i][j]:
+            if puzzle.state[i][j] != 0 and puzzle.state[i][j] != goal[i][j]: #If a tile is in the wrong place, increment by 1
                 distance += 1
     return distance
 
 
-def mdheuristic(puzzle):
+def mdheuristic(puzzle):#Returns h(n) for Manhattan Distance
     distance = 0
     goal = generategoal(puzzle.dim)
     for i in range(0, puzzle.dim):
         for j in range(0, puzzle.dim):
-            if goal[i][j] != puzzle.state[i][j]:
-                k,l = findval(goal, puzzle.state[i][j])[0], findval(goal, puzzle.state[i][j])[1]
-                distance += abs(i - k) + abs(j - l)
+            if puzzle.state[i][j] != 0 and puzzle.state[i][j] != goal[i][j]:#If a tile is in the wrong place, increment by x offset and y offset
+                d = findval(goal, puzzle.state[i][j])
+                distance += abs(i - d[0]) + abs(j - d[1])
     return distance
 
 
-def up(problem):
+def up(problem): #Operator that moves the 0 tile up
     i, j = findblank(problem)[0], findblank(problem)[1]
     if i != 0:
         problem.state[i][j], problem.state[i-1][j] = problem.state[i-1][j], problem.state[i][j]
     return problem
 
 
-def down(problem):
+def down(problem): #Operator that moves the 0 tile down
     i, j = findblank(problem)[0], findblank(problem)[1]
     if i != problem.dim - 1:
         problem.state[i][j], problem.state[i+1][j] = problem.state[i+1][j], problem.state[i][j]
     return problem
 
 
-def left(problem):
+def left(problem):#Operator that moves the 0 tile left
     i, j = findblank(problem)[0], findblank(problem)[1]
     if j != 0:
         problem.state[i][j], problem.state[i][j-1] = problem.state[i][j-1], problem.state[i][j]
     return problem
 
 
-def right(problem):
+def right(problem):#Operator that moves the 0 tile right
     i, j = findblank(problem)[0], findblank(problem)[1]
     if j != problem.dim - 1:
         problem.state[i][j], problem.state[i][j+1] = problem.state[i][j+1], problem.state[i][j]
@@ -188,22 +194,27 @@ def right(problem):
 
 
 def main():
-    operators = [up, down, left, right]
-    queuingfunctions = [uniformcost, misplacedtile, manhattandistance]
+    operators = [up, down, left, right] #List of operator functions
+    queuingfunctions = [uniformcost, misplacedtile, manhattandistance]#List of queuing functions
+    heuristics = [ucheuristsic, mtheuristic, mdheuristic]#List of heuristic functions
     dim = int(input('Choose the size of your puzzle: '))
-    puzzle = slidepuzzle(dim, inputpuzzle(dim), 0)
+    puzzle = slidepuzzle(dim, inputpuzzle(dim), 0) #Create initial state from input
+    #puzzle = slidepuzzle(dim, [[1,2,3],[4,5,6],[8,7,0]], 0) #For testing
     visited.add(puzzle.hashkey())
     inserted.add(puzzle.hashkey())
     qf = int(input('Choose your queuing function:\n (1) = Uniform cost\n (2) = Misplaced tile heuristic\n (3) = Manhattan distance heuristic:'))-1
-    timer = t.time()
+    puzzle.heuristic = heuristics[qf](puzzle)
+    timer = t.time() #Start timer
     outcome = generalsearch(puzzle, queuingfunctions[qf], operators)
-    timer = t.time() - timer
+    timer = t.time() - timer #Stop timer
     print('Is the goal state reachable? ' + str(outcome))
-    expanded = len(visited)
-    print('Number of nodes expanded: ' + str(expanded))
+    tested = len(visited) - 1
+    print('Number of nodes tested: ' + str(tested))
     print('Maximum nodes in the queue: ' + str(maxqueue))
     print('Solution depth: ' + str(depth))
-    print('Time taken: ' + str(timer))
+    print('Number of frontier nodes: ' + str(frontier))
+    print('Time taken: ' + str(round(timer, 3)))
+
 
 
 main()
